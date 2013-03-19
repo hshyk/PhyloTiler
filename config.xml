@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+	<size>
+		<tree>1024</tree>
+		<window>512</window>
+		<zoom>
+			<minimum>1</minimum>
+			<maximum>4</maximum>
+		</zoom>
+	</size>
+	<shape>RECT</shape>
+	<destination>package</destination>
+</config>
