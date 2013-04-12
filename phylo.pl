@@ -9,6 +9,8 @@ use Bio::Phylo::IO 'parse';
 use XML::Simple;
 use Image::Magick;
 use File::Path;
+use File::Copy;
+use Config;
 use JSON;
 
 # Grab the Tree Input File
@@ -33,6 +35,10 @@ my $fac = Bio::Phylo::Factory->new(
     'tree' => 'Bio::Phylo::Forest::DrawTree',
 );
 
+# Create the image tiles
+my $tilelevel = 0;
+my $treesize = 8 ** $config->{size}->{zoom}->{maximum};
+
 # Instantiate tree drawer
 my $drawer = Bio::Phylo::Treedrawer->new(
     '-width'  => $config->{size}->{tree},
@@ -40,7 +46,7 @@ my $drawer = Bio::Phylo::Treedrawer->new(
     # Args    : Options: [rect|diag|curvy|radial]
     '-shape'  => $config->{shape}, # rectangular tree
     '-mode'   => 'CLADO', # cladogram
-    '-format' => 'JPEG'
+    '-format' => 'SVG'
 );
 
 # Check the format of the file (Nexus or NeXML)
@@ -101,12 +107,7 @@ if (! -d $location) {
 	mkpath($location, 0, 0755) || die "Cannot create directory!: $!";
 }
 
-# Create the image tiles
-my $tilelevel = 0;
-saveImageThumbnailTile($drawer->draw, $location);
-if ($tilelevel > 0) {
-	$tilelevel -= 1;
-}
+saveImageSVG($drawer->draw, $location,  $config->{size}->{tree});
 
 
 # This we just do to create properly nested NeXML
@@ -146,7 +147,7 @@ foreach my $tree ( @{ $forest->get_entities } ) {
  my $json = JSON->new->encode($nodehash);
 
 # Open the template file, replace values and save it as a new file 
-open (INPUT, "template.html") or die("Unable to open template file");
+open (INPUT, "files/template.html") or die("Unable to open template file");
 open(OUTPUT, ">:utf8", $location."treeviewer.html") || die "Cannot create treeviewerfile!: $!";
 while(<INPUT>) {
     if(/REPLACE_TREESIZE/) {
@@ -167,20 +168,51 @@ while(<INPUT>) {
     print OUTPUT $_; 
 }
 
+# Copy over the Javascript files
+copy("files/phylotiler.js", $location."phylotiler.js") or die "Copy failed: $!";
+
 close(INPUT);
 
+sub saveImageSVG {
+	my ($drawer, $location, $size) = @_;
+	
+	open(OUTPUT, ">:utf8", $location."tree.svg") || die "Cannot open tree.svg!: $!";
+		print OUTPUT $drawer;
+	close(OUTPUT);
+	
+	my $inkscape = 'inkscape';
+	
+	# If using a Mac then you need to point to the exact location of the command
+	if ($Config{osname} eq 'darwin') {
+		$inkscape = '/Applications/Inkscape.app/Contents/Resources/bin/inkscape';
+	}
+	# Runthe command to convert the SVG to a PNG
+	system($inkscape.' -z -f'. $location.'tree.svg -w '. $size .' -h'. $size .' -e'. $location.'tree.png');
+ 	
+ 	my $img = Image::Magick->new(magick=>'jpg');
+	
+	$img->ReadImage( $location.'tree.png');
+	$img->Write($location."tree.jpg"); 
+	undef $img;
+  	saveImageThumbnailTile($location.'tree.jpg');
+	
+}
+
 sub saveImageThumbnailTile {
-	my ($svg, $location) = @_;
+	my ($image) = @_;
 
     my $tile_dir = $location.'tiles';
     $tile_dir =~ s/\.\w+$//;
 	
 	
-	my $img = Image::Magick->new(magick=>'jpg');
-	$img->BlobToImage( $svg );
+	#my $img = Image::Magick->new(magick=>'jpg');
+	#$img->BlobToImage( $svg );
 
 	#$img->Resize(geometry=>'800x800');
-	$img->Write($location."tree.jpg");
+	#$img->Write($location."tree.jpg");
+	my $img = Image::Magick->new(magick=>'jpg');
+	
+	$img->Read($image);	
 	
     my $w   = $img->Get('width');
     my $h   = $img->Get('height');
@@ -227,8 +259,7 @@ sub saveImageThumbnailTile {
     my $layer = 0;
 	for (;;) {
     	# Google Maps only allows 19 layers (though I doubt we'll ever
-        # reach this point).  This script limits it to 5 layers because once the 6th layer is hit 
-        # it
+        # reach this point). 
         last if ($layer >= $config->{size}->{zoom}->{maximum});
 		
 		my $width = 256 * (2 ** $layer);
@@ -267,8 +298,7 @@ sub saveImageThumbnailTile {
         # Cleanup
             undef $crop_master;
        	}
-       	
-       	$tilelevel = $layer;
+       	 $tilelevel = $layer-1;
    		# Cleanup
         undef $master;
 

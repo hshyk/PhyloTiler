@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <config>
 	<size>
-		<tree>1024</tree>
+		<tree>2048</tree>
 		<window>512</window>
 		<zoom>
 			<minimum>1</minimum>
