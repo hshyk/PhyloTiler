@@ -88,16 +88,21 @@ open(INPUT, "<:utf8", "$datafile") || die "Cannot open $datafile!: $!";
 		chomp($in);
 		
 		# Grab the TSV values
-		my ($left_name, $right_name, $image, $content, $link) = split(/\t/,$in);
+		my ($left_name, $right_name, $image, $content, $link, $hovertext, $zoomlevels) = split(/\t/,$in);
 		
 		my $left_node  = $tree->get_by_name( $left_name );
 		my $right_node  = $tree->get_by_name( $right_name );
 		my $mrca = $left_node->get_mrca( $right_node );
 		
-		$mrca->set_meta_object( "pm:image" => "$image" );
-		$mrca->set_meta_object( "pm:content" => "$content" );
-		$mrca->set_meta_object( "pm:link" => "$link" );
+		$mrca->set_meta_object( "pm:image" => "$image" ) unless !defined($image);
+		$mrca->set_meta_object( "pm:content" => "$content" ) unless !defined($content);
+		$mrca->set_meta_object( "pm:link" => "$link" ) unless !defined($link);
+		$mrca->set_meta_object( "pm:hovertext" => "$hovertext" ) unless !defined($hovertext);
+		# Remove the quotes
+		$zoomlevels =~ s/"//g;
+		$mrca->set_meta_object( "pm:zoom" => "$zoomlevels" ) unless !defined($zoomlevels);
 
+		
 }
 
 # Set the location of the files
@@ -130,12 +135,17 @@ foreach my $tree ( @{ $forest->get_entities } ) {
 
     foreach my $node ( @{ $tree->get_entities } ) {
 		if (defined $node->get_meta_object('pm:content')) {
+			# Set the zoom levels to be an array 
+			my @zoom = split(",", $node->get_meta_object('pm:zoom'));
+			
      		push(@meta, {
      			'x' => $node->get_x, 
      			'y' => $node->get_y, 
      			'image'	=> $node->get_meta_object('pm:image'),  
      			'content' => $node->get_meta_object('pm:content'), 
      			'link' => $node->get_meta_object('pm:link'),
+     			'hovertext' => $node->get_meta_object('pm:hovertext'),
+     			'zoom' => \@zoom
      		});
 		}
      }
@@ -170,6 +180,7 @@ while(<INPUT>) {
 
 # Copy over the Javascript files
 copy("files/phylotiler.js", $location."phylotiler.js") or die "Copy failed: $!";
+copy("files/markerwithlabel.js", $location."markerwithlabel.js") or die "Copy failed: $!";
 
 close(INPUT);
 
