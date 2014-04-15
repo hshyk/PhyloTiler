@@ -36,7 +36,9 @@ The configuration is read from an XML file, config.xml.  The following is availa
 * Zoom - Maximum: The maximum zoom for the Google Maps tile viewer.  This will determine how many levels to tile the image. The tiler may stop before this level if it cannot break the image down anymore.  Default: 4
 * Shape: The shape of the tree. Default: RECT. Available modes: RECT,DIAG,CURVY,RADIAL
 * Destination: The file location where you would like the package files to go.  Default: package (same folder as source files)
+
 There is a metadata template file, template.txt, which can be used to add metadata records.  You can open template.txt with Excel.  The bigger the size of the tree, the better details you will get.
+
 The metadata file contains the following fields:
 * LEFT NAME - Left name.
 * RIGHT NAME - Right name.
@@ -45,8 +47,9 @@ The metadata file contains the following fields:
 * LINK - A clickable link for the popup window when the point in the tree is clicked.
 * HOVER TEXT - Text that will appear next to the point.
 * ZOOM LEVELS - You can set the zoom level of the Google Map at which the point will appear or not appear. The format should use a comma to separate the numbers, eg. 2,3,5  If nothing is set, it will show on all levels.
+
 Please note that when a bigger tree is being generated, it may take a lot longer for the script complete.
 
 
 ## License
-Released under the [MIT license](http://www.opensource.org/licenses/MIT).
+Released under the [GNU GENERAL PUBLIC LICENSE](http://opensource.org/licenses/GPL-3.0).
