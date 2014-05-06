@@ -23,35 +23,35 @@ PhyloTiler
 
 ##Installation
 You must install the following to run the program:
-	Perl - http://www.perl.org/
-	Inkscape - http://www.inkscape.org/
-	VIPS - http://www.vips.ecs.soton.ac.uk/
+	<ul>
+	<li>Perl - http://www.perl.org/</li>
+	<li>Inkscape - http://www.inkscape.org/</li>
+	<li>VIPS - http://www.vips.ecs.soton.ac.uk/</li>
+	</ul>
 
 
 ## OS X Specific Installation Issues
 To install Inkscape, download XQuartz and install it (http://xquartz.macosforge.org/landing/) and then download and install Inkscape (http://inkscape.org/download/).
 
 <ol>
-<li>Install libffi:<br />
- ftp://sourceware.org/pub/libffi/libffi-3.0.13.tar.gz</li>
+<li>Install libffi:</li>
+ ftp://sourceware.org/pub/libffi/libffi-3.0.13.tar.gz<br /><br />
 <li>Install gettext:</li>
-http://ftp.gnu.org/pub/gnu/gettext/gettext-0.18.3.2.tar.gz</li>
+http://ftp.gnu.org/pub/gnu/gettext/gettext-0.18.3.2.tar.gz</li><br /><br />
 <li>Intall glib:</li>
-
- * ``` curl http://ftp.gnome.org/pub/gnome/sources/glib/2.31/glib-2.31.14.tar.xz -o glib.tgz```
-
-
- * ```tar zxf glib.tgz ```
-
+<br />
+ ``` curl http://ftp.gnome.org/pub/gnome/sources/glib/2.31/glib-2.31.14.tar.xz -o glib.tgz ```<br />
+ ```tar zxf glib.tgz ```
+<br /><br />
 <li>Before running ./configure, apply the following patch: </li>
- edit glib/glib/gconvert.c line 61:
+ edit glib/glib/gconvert.c line 61:<br /><br />
 
- * \#if defined(USE_LIBICONV_GNU) && !defined (_LIBICONV_H) <br />
-  /* #error GNU libiconv in use but included iconv.h not from libiconv \*/ <br />
- \#endif <br />
- \#if !defined(USE_LIBICONV_GNU) && defined (_LIBICONV_H) <br />
-  /\* #error GNU libiconv not in use but included iconv.h is from libiconv */ <br />
-\#endif
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; \#if defined(USE_LIBICONV_GNU) && !defined (_LIBICONV_H) <br />
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/\* #error GNU libiconv in use but included iconv.h not from libiconv \*/ <br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; \#endif <br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; \#if !defined(USE_LIBICONV_GNU) && defined (_LIBICONV_H) <br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /\* #error GNU libiconv not in use but included iconv.h is from libiconv */ <br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; \#endif
 
 <li> Install vips:</li>
 http://www.vips.ecs.soton.ac.uk/supported/current/vips-7.38.5.tar.gz
@@ -63,7 +63,19 @@ Once Inkscape and VIPS are installed, make sure to set their install directories
 
 ## Running the Script
 You can run the script from the command line.  The script takes two parameters.  The first is the location of the Tree file.  The second is the location of the 
-metadata file.  An example is phylo.pl Tree.tre metadata.txt.  To run the examples included in the files: phylo.pl example/Viburnum.tre example/info.txt
+metadata file.  An example is phylo.pl Tree.tre metadata.txt.  To run the examples included in the files:
+
+ ``` phylo.pl example/Viburnum.tre example/info.txt  ```
+ 
+ The script will output the following into your target destination from your configuration:
+ 
+ <ul>
+ <li>treeviewer.html - The actual viewer</li>
+ <li>tiles - The tile images folder for the viewer</li>
+ <li>js - Javascript folder for the viewer</li>
+ <li>css - CSS folder for the viewer</li>
+<li>files - Contains the NEXUS, NeXML and SVG representation of the tree</li>
+</ul>
 
 ## Configuration
 The configuration is read from an XML file, config.xml.  The following is available to configure:

@@ -3,7 +3,7 @@
 	<size>
 		<zoom>
 			<minimum>1</minimum>
-			<maximum>11</maximum>
+			<maximum>5</maximum>
 		</zoom>
 	</size>
 	<shape>RECT</shape>

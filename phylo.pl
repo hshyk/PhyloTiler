@@ -116,21 +116,31 @@ print "Creating destination folder... \n";
 my $location = $config->{destination}.'/';
 # Create the directory if it does not exist
 if (! -d $location) {
-	mkpath($location, 0, 0755) || die "Cannot create directory!: $!";
+	# Create the root directory
+	mkpath($location, 0, 0755) || die "Cannot create root directory!: $!";
+	# Create the css folder
+    mkpath($location.'/css', 0, 0755) || die "Cannot create js directory!: $!";
+    # Create the javascript folder
+    mkpath($location.'/js', 0, 0755) || die "Cannot create js directory!: $!";
+    # Create the image directory
+    mkpath($location.'/img', 0, 0755) || die "Cannot create img directory!: $!";
+    # Create the files directory
+    mkpath($location.'/files', 0, 0755) || die "Cannot create files directory!: $!";
+    
 }
 print "Saving tree to SVG... \n";
 # Create the SVG file
-open(OUTPUT, ">:utf8", $location."tree.svg") || die "Cannot open tree.svg!: $!";
+open(OUTPUT, ">:utf8", $location."files/tree.svg") || die "Cannot open tree.svg!: $!";
 	print OUTPUT $drawer->draw;
 close(OUTPUT);
 
 print "Saving tree to PNG... \n";
 # Convert the original image from SVG to PNG
-convertSVGtoImage($location."tree.svg", $location."tree.png",  $size);
+convertSVGtoImage($location."files/tree.svg", $location."img/tree.png",  $size);
 
 print "Tiling the image... \n";
 # Tile the tree images
-saveImageThumbnailTile($location.'tree.png');
+saveImageThumbnailTile($location.'img/tree.png');
 
 # This we just do to create properly nested NeXML
 my $proj = $fac->create_project;
@@ -141,13 +151,13 @@ $proj->insert($forest);
 
 print "Creating NeXML file... \n";
 # Output the NeXML file
-open(OUTPUT, ">:utf8", $location."tree.xml") || die "Cannot open tree.xml!: $!";
+open(OUTPUT, ">:utf8", $location."files/tree.xml") || die "Cannot open tree.xml!: $!";
 	print OUTPUT $proj->to_xml;
 close(OUTPUT);
 
 print "Creating NEXUS file... \n";
 # Output the NEXUS file
-open(OUTPUT, ">:utf8", $location."tree.nex") || die "Cannot open tree.nex!: $!";
+open(OUTPUT, ">:utf8", $location."files/tree.nex") || die "Cannot open tree.nex!: $!";
 	print OUTPUT $proj->to_nexus;
 close(OUTPUT);
 
@@ -199,9 +209,10 @@ while(<INPUT>) {
     print OUTPUT $_; 
 }
 
-# Copy over the Javascript files
-copy("files/phylotiler.js", $location."phylotiler.js") or die "Copy failed: $!";
-copy("files/markerwithlabel.js", $location."markerwithlabel.js") or die "Copy failed: $!";
+# Copy over the CSS and Javascript files
+copy("files/style.css", $location."css/style.css") or die "Copy failed: $!";
+copy("files/phylotiler.js", $location."js/phylotiler.js") or die "Copy failed: $!";
+copy("files/markerwithlabel.js", $location."js/markerwithlabel.js") or die "Copy failed: $!";
 
 close(INPUT);
 
@@ -230,7 +241,7 @@ sub saveImageThumbnailTile {
     my $tile_dir = $location.'tiles';
     $tile_dir =~ s/\.\w+$//;
 	
-    (my $w,  my $h) = imgsize($location.'tree.png');
+    (my $w,  my $h) = imgsize($location.'img/tree.png');
 
     # (Re)create the target directory
     my $ubak = umask(0);
@@ -261,10 +272,10 @@ sub saveImageThumbnailTile {
 		mkdir("$tile_dir/$layer", 0775) unless (-d "$tile_dir/$layer");
 		
       	# Create a png to tile from.  It is created from the SVG for speed reasons over duplicating from ImageMagick
-		convertSVGtoImage($location.'tree.svg', $location.'tree_'.$layer.'.png', $width);
+		convertSVGtoImage($location.'files/tree.svg', $location.'img/tree_'.$layer.'.png', $width);
 		
 		# Use the VIPS program to tile the files
-		system('vips dzsave '.$location.'tree_'.$layer.'.png '.$location.'tile --depth 1 --tile-size 256 --overlap 0 --suffix .png')  == 0 or die "VIPS is either not installed or unable to process your higher level tile images";
+		system('vips dzsave '.$location.'img/tree_'.$layer.'.png '.$location.'tile --depth 1 --tile-size 256 --overlap 0 --suffix .png')  == 0 or die "VIPS is either not installed or unable to process your higher level tile images";
 		
 		# Move the tiled directory
 		dirmove($location.'tile_files/0',$tile_dir.'/'.$layer) or die 'VIPS could not copy your tiles to the correct folder';
@@ -273,7 +284,7 @@ sub saveImageThumbnailTile {
 		unlink($location.'tile.dzi');
 
 		# Delete the image which the tiles came from
-		unlink($location.'tree_'.$layer.'.png');
+		unlink($location.'img/tree_'.$layer.'.png');
 
 		$layer++;
 	}
