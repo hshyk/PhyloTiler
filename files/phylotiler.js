@@ -13,7 +13,7 @@ function initialize() {
 					return null;
 				}
 				var bound = Math.pow(2, zoom);
-				return  "tiles/" + zoom + "/" + normalizedCoord.x + "-" + (normalizedCoord.y) + ".jpg";
+				return  "tiles/" + zoom + "/" + normalizedCoord.x + "_" + (normalizedCoord.y) + ".png";
 
 		},
 		// Sets the default Google Maps tile size
@@ -37,7 +37,7 @@ function initialize() {
 		mapTypeControlOptions: {
 			mapTypeIds: ["Tree"]
 		},
-		backgroundColor: "#000000"
+		backgroundColor: "#FFFFFF"
 	};
 				
 	// Create the map
@@ -162,7 +162,11 @@ function initialize() {
 				
 				allMarkers.push(marker);
 						
-				var infoWindow = new google.maps.InfoWindow();
+				var infoWindow = new google.maps.InfoWindow(
+					{
+						'maxWidth': 500
+					}
+				);
 								            
 				google.maps.event.addListener(marker, 'click', function () {
 					infoWindow.setContent(this.content);
@@ -171,36 +175,19 @@ function initialize() {
 			}
 		}
 		
-		// Check the bounds when the center changes
-	    google.maps.event.addListener(map, 'center_changed', function() {
-			checkBounds();
+		var lastValidCenter = map.getCenter();
+
+		google.maps.event.addListener(map, 'center_changed', function() {
+    		if (allowedBounds.contains(map.getCenter())) {
+		    	// still within valid bounds, so save the last valid position
+	        	lastValidCenter = map.getCenter();
+				return; 
+			}
+
+			// not valid anymore => return to last valid position
+			map.panTo(lastValidCenter);
 		});
 	}
-	
-	
-	// Checks the bounds of the map
-    function checkBounds() {
-        if(allowedBounds.contains(map.getCenter())) {
-          return;
-        }
-        var mapCenter = map.getCenter();
-        var X = mapCenter.lng();
-        var Y = mapCenter.lat();
-
-        var AmaxX = allowedBounds.getNorthEast().lng();
-        var AmaxY = allowedBounds.getNorthEast().lat();
-        var AminX = allowedBounds.getSouthWest().lng();
-        var AminY = allowedBounds.getSouthWest().lat();
-
-        if (X < AminX) {X = AminX;}
-        if (X > AmaxX) {X = AmaxX;}
-        if (Y < AminY) {Y = AminY;}
-        if (Y > AmaxY) {Y = AmaxY;}
-     
-         map.setCenter(new google.maps.LatLng(Y,X));
-    }
-
-
 }
 
 // This is used to make sure the user is connected to the Internet.  If not, Google Maps will not work.

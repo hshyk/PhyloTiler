@@ -1,11 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <config>
 	<size>
-		<tree>2048</tree>
-		<window>512</window>
 		<zoom>
 			<minimum>1</minimum>
-			<maximum>4</maximum>
+			<maximum>11</maximum>
 		</zoom>
 	</size>
 	<shape>RECT</shape>

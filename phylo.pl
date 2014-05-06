@@ -1,15 +1,16 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
-use lib "lib"; 
 use Bio::Phylo::Factory;
 use Bio::Phylo::Treedrawer;
 use Bio::Phylo::IO 'parse_tree';
 use Bio::Phylo::IO 'parse';
 use XML::Simple;
-use Image::Magick;
+use Image::Size;
 use File::Path;
 use File::Copy;
+use File::Copy::Recursive 'dirmove';
+use File::Copy::Recursive 'pathrmdir';
 use Config;
 use JSON;
 
@@ -25,6 +26,7 @@ die "Need data file" if not -f $datafile;
 # Create the XML object
 my $xml = new XML::Simple;
 
+print "Loading the configuration...\n";
 # Read the configuration file
 my $config = $xml->XMLin("config.xml");
 
@@ -38,16 +40,19 @@ my $fac = Bio::Phylo::Factory->new(
 # Create the image tiles
 my $tilelevel = 0;
 my $treesize = 8 ** $config->{size}->{zoom}->{maximum};
+my $size = 256 * (2 ** $config->{size}->{zoom}->{maximum});
+
 
 # Instantiate tree drawer
 my $drawer = Bio::Phylo::Treedrawer->new(
-    '-width'  => $config->{size}->{tree},
-    '-height' => $config->{size}->{tree},
+    '-width'  => $size,
+    '-height' => $size,
     # Args    : Options: [rect|diag|curvy|radial]
     '-shape'  => $config->{shape}, # rectangular tree
     '-mode'   => 'CLADO', # cladogram
     '-format' => 'SVG'
 );
+
 
 # Check the format of the file (Nexus or NeXML)
 my ($ext) = $treefile =~ /(\.[^.]+)$/;
@@ -79,7 +84,7 @@ $drawer->set_tree($tree);
 # Compute the coordinates
 $drawer->compute_coordinates;
 
-
+print "Loading datafile... \n";
 # Open the metadata file and parse the contents
 open(INPUT, "<:utf8", "$datafile") || die "Cannot open $datafile!: $!";
 	while (my $in = <INPUT>) {
@@ -105,15 +110,27 @@ open(INPUT, "<:utf8", "$datafile") || die "Cannot open $datafile!: $!";
 		
 }
 
+print "Creating destination folder... \n";
+
 # Set the location of the files
 my $location = $config->{destination}.'/';
 # Create the directory if it does not exist
 if (! -d $location) {
 	mkpath($location, 0, 0755) || die "Cannot create directory!: $!";
 }
+print "Saving tree to SVG... \n";
+# Create the SVG file
+open(OUTPUT, ">:utf8", $location."tree.svg") || die "Cannot open tree.svg!: $!";
+	print OUTPUT $drawer->draw;
+close(OUTPUT);
 
-saveImageSVG($drawer->draw, $location,  $config->{size}->{tree});
+print "Saving tree to PNG... \n";
+# Convert the original image from SVG to PNG
+convertSVGtoImage($location."tree.svg", $location."tree.png",  $size);
 
+print "Tiling the image... \n";
+# Tile the tree images
+saveImageThumbnailTile($location.'tree.png');
 
 # This we just do to create properly nested NeXML
 my $proj = $fac->create_project;
@@ -122,17 +139,23 @@ $forest->insert($tree);
 $proj->insert($forest);
 
 
+print "Creating NeXML file... \n";
 # Output the NeXML file
 open(OUTPUT, ">:utf8", $location."tree.xml") || die "Cannot open tree.xml!: $!";
 	print OUTPUT $proj->to_xml;
 close(OUTPUT);
 
+print "Creating NEXUS file... \n";
+# Output the NEXUS file
+open(OUTPUT, ">:utf8", $location."tree.nex") || die "Cannot open tree.nex!: $!";
+	print OUTPUT $proj->to_nexus;
+close(OUTPUT);
+
 # Go through all of the meta data and add it to an array
+print "Attaching metadata... \n";
 my @meta;
 foreach my $tree ( @{ $forest->get_entities } ) {
-
-    print ref $tree;
-
+	
     foreach my $node ( @{ $tree->get_entities } ) {
 		if (defined $node->get_meta_object('pm:content')) {
 			# Set the zoom levels to be an array 
@@ -156,15 +179,13 @@ foreach my $tree ( @{ $forest->get_entities } ) {
  $nodehash->{markers} = \@meta;
  my $json = JSON->new->encode($nodehash);
 
+print "Copying files... \n";
 # Open the template file, replace values and save it as a new file 
 open (INPUT, "files/template.html") or die("Unable to open template file");
 open(OUTPUT, ">:utf8", $location."treeviewer.html") || die "Cannot create treeviewerfile!: $!";
 while(<INPUT>) {
     if(/REPLACE_TREESIZE/) {
-        s/REPLACE_TREESIZE/$config->{size}->{tree}/ges;   
-    }
-    if(/REPLACE_WINDOWSIZE/) {
-        s/REPLACE_WINDOWSIZE/$config->{size}->{window}/ges;   
+        s/REPLACE_TREESIZE/$size/ges;   
     }
     if(/REPLACE_MARKERS/) {
         s/REPLACE_MARKERS/$json/; 
@@ -184,29 +205,23 @@ copy("files/markerwithlabel.js", $location."markerwithlabel.js") or die "Copy fa
 
 close(INPUT);
 
-sub saveImageSVG {
-	my ($drawer, $location, $size) = @_;
+print "PhyloTiler Successfully Completed!";
+
+
+sub convertSVGtoImage {
+	my ($svg, $image, $size) = @_;
 	
-	open(OUTPUT, ">:utf8", $location."tree.svg") || die "Cannot open tree.svg!: $!";
-		print OUTPUT $drawer;
-	close(OUTPUT);
-	
+	$size = $size+1;
 	my $inkscape = 'inkscape';
 	
 	# If using a Mac then you need to point to the exact location of the command
 	if ($Config{osname} eq 'darwin') {
 		$inkscape = '/Applications/Inkscape.app/Contents/Resources/bin/inkscape';
 	}
-	# Runthe command to convert the SVG to a PNG
-	system($inkscape.' -z -f'. $location.'tree.svg -w '. $size .' -h'. $size .' -e'. $location.'tree.png');
- 	
- 	my $img = Image::Magick->new(magick=>'jpg');
 	
-	$img->ReadImage( $location.'tree.png');
-	$img->Write($location."tree.jpg"); 
-	undef $img;
-  	saveImageThumbnailTile($location.'tree.jpg');
 	
+	# Run the command to convert the SVG to a PNG
+	system($inkscape.' -z -f '. $svg.' -w '. $size .' -h '. $size .' -e '. $image) == 0 or die "Inkscape was not able to convert your image";
 }
 
 sub saveImageThumbnailTile {
@@ -215,23 +230,13 @@ sub saveImageThumbnailTile {
     my $tile_dir = $location.'tiles';
     $tile_dir =~ s/\.\w+$//;
 	
-	
-	#my $img = Image::Magick->new(magick=>'jpg');
-	#$img->BlobToImage( $svg );
-
-	#$img->Resize(geometry=>'800x800');
-	#$img->Write($location."tree.jpg");
-	my $img = Image::Magick->new(magick=>'jpg');
-	
-	$img->Read($image);	
-	
-    my $w   = $img->Get('width');
-    my $h   = $img->Get('height');
+    (my $w,  my $h) = imgsize($location.'tree.png');
 
     # (Re)create the target directory
     my $ubak = umask(0);
     mkpath($tile_dir, 0, 0755);
     umask($ubak);
+    
     # Find the next largest multiple of 256 and the power of 2
     my $dim = ($w > $h ? $w : $h);
     my $pow = -1;
@@ -242,75 +247,37 @@ sub saveImageThumbnailTile {
        $dim = $i;
        last;
     }
-    # Resize the source image up to the larger size, so the zoomed-out images
-    # get as little of the black padding/background as possible.  Hopefully it
-    # won't distort the images too badly.
-    if ($dim > $w && $dim > $h) {
-     # Determine the optimal pixel radius for sharpening, and do so
-		my $sharp = ($w / $dim > $h / $dim
-        	? $dim / $w
-            : $dim / $h
-         ) / 2;
-        $img->Sharpen(radius => $sharp);
-        # Resize
-        $img->Resize(geometry => "${dim}x$dim");
-    }
-    # Build a new square image with a black background, and composite the
-    # source image on top of it.
-	my $master = Image::Magick->new;
-    $master->Set('size' => "${dim}x$dim");
-    $master->Read("xc:black");
-    $master->Composite(
-    	'image'   => $img,
-        'gravity' => 'Center',
-    );
-    # Cleanup
-    undef $img;
-    # Create slice layers
+    
+
     my $layer = 0;
 	for (;;) {
     	# Google Maps only allows 19 layers (though I doubt we'll ever
         # reach this point). 
-        last if ($layer >= $config->{size}->{zoom}->{maximum});
+        my $width = 256 * (2 ** $layer);
+        last if ($layer >= $config->{size}->{zoom}->{maximum} + 1 || $width > $dim || $layer == 19);
 		
-		my $width = 256 * (2 ** $layer);
-        last if ($width > $dim);
-
+		print "Tiling level $layer... \n";
+		# Create the tile folder
 		mkdir("$tile_dir/$layer", 0775) unless (-d "$tile_dir/$layer");
+		
+      	# Create a png to tile from.  It is created from the SVG for speed reasons over duplicating from ImageMagick
+		convertSVGtoImage($location.'tree.svg', $location.'tree_'.$layer.'.png', $width);
+		
+		# Use the VIPS program to tile the files
+		system('vips dzsave '.$location.'tree_'.$layer.'.png '.$location.'tile --depth 1 --tile-size 256 --overlap 0 --suffix .png')  == 0 or die "VIPS is either not installed or unable to process your higher level tile images";
+		
+		# Move the tiled directory
+		dirmove($location.'tile_files/0',$tile_dir.'/'.$layer) or die 'VIPS could not copy your tiles to the correct folder';
+		
+		pathrmdir($location.'tile_files');
+		unlink($location.'tile.dzi');
 
-		my $crop_master = $master->Clone();
-        $crop_master->Blur(radius => ($dim / $width) / 2);
-        $crop_master->Resize(
-        	geometry => "${width}x$width",
-            blur     => .7,
-		);
-        my $max_loop = int($width / 256) - 1;
+		# Delete the image which the tiles came from
+		unlink($location.'tree_'.$layer.'.png');
 
-		foreach my $x (0 .. $max_loop) {
-        	foreach my $y (0 .. $max_loop) {
-            	my $crop = $crop_master->Clone();
-                $crop->Crop(
-                	height => 256,
-                    width  => 256,
-                    x      => $x * 256,
-                    y      => $y * 256,
-                 );
-                 $crop->Write(
-                 	filename => "$tile_dir/$layer/$x-$y.jpg",
-                    quality  => 75,
-                 );
-                 $ubak = umask(0);
-                 chmod 0644, "$tile_dir/$layer/$x-$y.jpg";
-                 umask($ubak);
-                 undef $crop;
-				}
-            }
 		$layer++;
-        # Cleanup
-            undef $crop_master;
-       	}
-       	 $tilelevel = $layer-1;
-   		# Cleanup
-        undef $master;
+	}
+	
+    $tilelevel = $layer-1;
 
 }
